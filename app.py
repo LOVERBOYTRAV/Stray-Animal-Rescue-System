@@ -82,6 +82,14 @@ def init_db():
                 vaccination_status VARCHAR(80) NOT NULL DEFAULT 'Unknown',
                 notes TEXT
             );
+            CREATE TABLE IF NOT EXISTS animal_history (
+                history_id SERIAL PRIMARY KEY,
+                animal_id INTEGER REFERENCES animals(animal_id) ON DELETE SET NULL,
+                animal_name VARCHAR(100) NOT NULL,
+                event_type VARCHAR(60) NOT NULL,
+                details TEXT NOT NULL,
+                event_date TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
         """)
         conn.commit()
 
@@ -98,7 +106,7 @@ def login_required(fn):
 
 @app.context_processor
 def inject_globals():
-    return {"current_year": date.today().year}
+    return {"current_year": date.today().year, "cloudinary_cloud_name": os.environ.get("CLOUDINARY_CLOUD_NAME", ""), "cloudinary_upload_preset": os.environ.get("CLOUDINARY_UPLOAD_PRESET", "")}
 
 
 @app.route("/")
@@ -236,7 +244,9 @@ def admin_dashboard():
             SELECT COUNT(*) AS total,
                    COUNT(*) FILTER (WHERE adoption_status='Available') AS available,
                    COUNT(*) FILTER (WHERE adoption_status='Pending') AS pending,
-                   COUNT(*) FILTER (WHERE adoption_status='Adopted') AS adopted
+                   COUNT(*) FILTER (WHERE adoption_status='Adopted') AS adopted,
+                   COUNT(*) FILTER (WHERE health_status='Under treatment') AS under_treatment,
+                   COUNT(*) FILTER (WHERE adoption_status='Available') AS rescued_available
             FROM animals
         """).fetchone()
         applications = conn.execute("""
@@ -247,7 +257,8 @@ def admin_dashboard():
             ORDER BY aa.application_date DESC LIMIT 10
         """).fetchall()
         reports = conn.execute("SELECT * FROM rescue_reports ORDER BY report_date DESC LIMIT 8").fetchall()
-    return render_template("admin_dashboard.html", stats=stats, applications=applications, reports=reports)
+        waiting_applicants = conn.execute("SELECT COUNT(*) AS total FROM adoption_applications WHERE status='Pending'").fetchone()["total"]
+    return render_template("admin_dashboard.html", stats=stats, applications=applications, reports=reports, waiting_applicants=waiting_applicants)
 
 
 @app.route("/admin/animals")
@@ -306,7 +317,10 @@ def animal_form(animal_id=None):
                     INSERT INTO animals (name,species,breed,sex,estimated_age,rescue_date,rescue_location,
                     health_status,description,image_url,adoption_status)
                     VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                    RETURNING animal_id
                 """, tuple(fields.values()))
+                new_row = conn.execute("SELECT animal_id FROM animals WHERE name=%s ORDER BY animal_id DESC LIMIT 1", (fields["name"],)).fetchone()
+                conn.execute("INSERT INTO animal_history (animal_id,animal_name,event_type,details) VALUES (%s,%s,%s,%s)", (new_row["animal_id"], fields["name"], "Rescue record created", "Initial rescue record added. Location: " + (fields["rescue_location"] or "Not recorded")))
         flash("Animal record saved successfully.", "success")
         return redirect(url_for("admin_animals"))
     return render_template("animal_form.html", animal=animal, editing=bool(animal_id))
@@ -342,6 +356,9 @@ def update_application(application_id):
             flash("Application not found.", "warning")
         else:
             conn.execute("UPDATE adoption_applications SET status=%s WHERE application_id=%s", (status, application_id))
+            animal_name = conn.execute("SELECT name FROM animals WHERE animal_id=%s", (app_row["animal_id"],)).fetchone()
+            if animal_name:
+                conn.execute("INSERT INTO animal_history (animal_id,animal_name,event_type,details) VALUES (%s,%s,%s,%s)", (app_row["animal_id"], animal_name["name"], "Adoption application updated", "Application #" + str(application_id) + " status changed to " + status + "."))
             if status == "Completed":
                 conn.execute("UPDATE animals SET adoption_status='Adopted' WHERE animal_id=%s", (app_row["animal_id"],))
             elif status == "Rejected":
@@ -368,6 +385,71 @@ def update_report(report_id):
             conn.execute("UPDATE rescue_reports SET status=%s WHERE report_id=%s", (status, report_id))
         flash("Rescue report updated.", "success")
     return redirect(url_for("admin_dashboard"))
+
+
+@app.route("/admin/animals/<int:animal_id>/medical", methods=["GET", "POST"])
+@login_required
+def animal_medical(animal_id):
+    with get_db() as conn:
+        animal = conn.execute("SELECT * FROM animals WHERE animal_id=%s", (animal_id,)).fetchone()
+        if not animal:
+            flash("Animal record not found.", "warning")
+            return redirect(url_for("admin_animals"))
+        if request.method == "POST":
+            diagnosis = request.form.get("diagnosis", "").strip()[:3000]
+            treatment = request.form.get("treatment", "").strip()[:3000]
+            vaccination = request.form.get("vaccination_status", "Unknown")
+            notes = request.form.get("notes", "").strip()[:3000]
+            record_date = request.form.get("record_date") or date.today().isoformat()
+            if not diagnosis or vaccination not in {"Unknown", "Not vaccinated", "Partially vaccinated", "Fully vaccinated"}:
+                flash("Enter a diagnosis and choose a valid vaccination status.", "error")
+            else:
+                conn.execute("INSERT INTO medical_records (animal_id,record_date,diagnosis,treatment,vaccination_status,notes) VALUES (%s,%s,%s,%s,%s,%s)", (animal_id,record_date,diagnosis,treatment,vaccination,notes))
+                conn.execute("INSERT INTO animal_history (animal_id,animal_name,event_type,details) VALUES (%s,%s,%s,%s)", (animal_id,animal["name"],"Medical update", diagnosis + (" — " + treatment if treatment else "")))
+                status = request.form.get("health_status", animal["health_status"])
+                if status in {"Healthy", "Under treatment", "Needs assessment", "Recovered"}:
+                    conn.execute("UPDATE animals SET health_status=%s WHERE animal_id=%s", (status, animal_id))
+                flash("Medical record saved.", "success")
+                return redirect(url_for("animal_medical", animal_id=animal_id))
+        records = conn.execute("SELECT * FROM medical_records WHERE animal_id=%s ORDER BY record_date DESC, medical_id DESC", (animal_id,)).fetchall()
+    return render_template("animal_medical.html", animal=animal, records=records)
+
+
+@app.route("/admin/matching", methods=["GET", "POST"])
+@login_required
+def animal_matching():
+    species = request.values.get("species", "Any")
+    age = request.values.get("age", "Any")
+    size = request.values.get("size", "Any")
+    valid_species = {"Any", "Dog", "Cat", "Other"}
+    valid_age = {"Any", "Young", "Adult", "Senior"}
+    valid_size = {"Any", "Small", "Medium", "Large"}
+    if species not in valid_species: species = "Any"
+    if age not in valid_age: age = "Any"
+    if size not in valid_size: size = "Any"
+    clauses = ["adoption_status='Available'"]
+    params = []
+    if species != "Any": clauses.append("species=%s"); params.append(species)
+    if age != "Any":
+        age_terms = {"Young": ["%puppy%", "%kitten%", "%month%"], "Adult": ["%adult%", "%year%"], "Senior": ["%senior%", "%old%"]}[age]
+        clauses.append("(" + " OR ".join(["LOWER(COALESCE(estimated_age, ' ') ) LIKE %s"] * len(age_terms)) + ")")
+        params.extend(age_terms)
+    # Size is not a stored field; match description/breed hints only and explain that it is approximate.
+    if size != "Any":
+        terms = {"Small": ["%small%", "%toy%"], "Medium": ["%medium%"], "Large": ["%large%", "%giant%"]}[size]
+        clauses.append("(" + " OR ".join(["LOWER(COALESCE(description,'') || ' ' || COALESCE(breed,'')) LIKE %s"] * len(terms)) + ")")
+        params.extend(terms)
+    with get_db() as conn:
+        matches = conn.execute("SELECT * FROM animals WHERE " + " AND ".join(clauses) + " ORDER BY created_at DESC", params).fetchall()
+    return render_template("animal_matching.html", animals=matches, species=species, age=age, size=size)
+
+
+@app.route("/admin/history")
+@login_required
+def animal_history():
+    with get_db() as conn:
+        history = conn.execute("SELECT * FROM animal_history ORDER BY event_date DESC LIMIT 300").fetchall()
+    return render_template("animal_history.html", history=history)
 
 
 @app.cli.command("create-admin")

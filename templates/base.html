@@ -21,6 +21,8 @@
     <a href="{{ url_for('report_rescue') }}">Report a stray</a>
     {% if session.get('admin_id') %}
       <a href="{{ url_for('admin_dashboard') }}">Dashboard</a>
+      <a href="{{ url_for('animal_matching') }}">Animal matching</a>
+      <a href="{{ url_for('animal_history') }}">History</a>
       <form class="nav-form" method="post" action="{{ url_for('admin_logout') }}"><button class="nav-logout">Sign out</button></form>
     {% else %}
       <a class="nav-admin" href="{{ url_for('admin_login') }}">Admin</a>
