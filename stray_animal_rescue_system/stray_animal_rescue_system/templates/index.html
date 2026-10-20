@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Find a friend, save a life{% endblock %}
+{% block content %}
+<section class="hero">
+  <div class="hero-copy">
+    <span class="eyebrow"><span class="eyebrow-dot"></span> SMALL ACTS. BIG SECOND CHANCES.</span>
+    <h1>Every paw deserves<br>a <span>place to call home.</span></h1>
+    <p>Somewhere out there is a friend who needs you. Meet rescued animals, give them a second chance, and be part of a kinder world.</p>
+    <div class="hero-actions"><a class="btn btn-primary" href="{{ url_for('animals') }}">Meet your new best friend <span>↗</span></a><a class="btn btn-quiet" href="{{ url_for('report_rescue') }}">♡ Report an animal</a></div>
+    <div class="hero-note"><div class="avatar-stack"><span>🐶</span><span>🐱</span><span>🐾</span></div><span><b>One kind choice</b><br>can change an entire life.</span></div>
+  </div>
+  <div class="hero-art">
+    <div class="hero-image"><img src="https://images.unsplash.com/photo-1450778869180-41d0601e046e?auto=format&fit=crop&w=1100&q=85" alt="Happy rescued dogs outdoors" onerror="this.style.display='none'"></div>
+    <div class="floating-note note-top"><span class="note-icon">♡</span><span><b>Love changes everything</b><small>Adopt, don't shop.</small></span></div>
+    <div class="floating-note note-bottom"><span class="paw-big">🐾</span><span><b>A fresh start</b><small>Starts with you.</small></span></div>
+    <span class="art-spark spark-one">✳</span><span class="art-spark spark-two">✦</span>
+  </div>
+</section>
+<section class="stats-strip">
+  <div><span class="stat-icon">🐕</span><span><b>{{ stats.in_care or 0 }}</b><small>Animals in our care</small></span></div>
+  <div><span class="stat-icon">🏡</span><span><b>{{ stats.available or 0 }}</b><small>Looking for a home</small></span></div>
+  <div><span class="stat-icon">💛</span><span><b>{{ stats.adopted or 0 }}</b><small>Happy adoptions</small></span></div>
+</section>
+<section class="section animals-section">
+  <div class="section-heading"><div><span class="eyebrow">YOUR NEW BEST FRIEND</span><h2>Meet the <span>lovely faces</span></h2><p>Every one has a story. You could be their happy ending.</p></div><a class="text-link" href="{{ url_for('animals') }}">See all animals <span>→</span></a></div>
+  <div class="animal-grid">
+  {% for animal in animals %}
+    <article class="animal-card">
+      <a class="animal-photo" href="{{ url_for('animal_detail', animal_id=animal.animal_id) }}">
+        {% if animal.image_url %}<img src="{{ animal.image_url }}" alt="{{ animal.name }}" loading="lazy">
+        {% else %}<div class="photo-placeholder {{ 'photo-cat' if animal.species == 'Cat' else 'photo-dog' }}"><span>{{ '🐱' if animal.species == 'Cat' else '🐶' if animal.species == 'Dog' else '🐾' }}</span><small>READY FOR A NEW CHAPTER</small></div>{% endif %}
+        <span class="status-pill">Ready for a home</span>
+      </a>
+      <div class="animal-info"><div><h3>{{ animal.name }}</h3><p>{{ animal.breed or animal.species }}{% if animal.estimated_age %} · {{ animal.estimated_age }}{% endif %}</p></div><a class="round-arrow" href="{{ url_for('animal_detail', animal_id=animal.animal_id) }}">↗</a></div>
+    </article>
+  {% else %}
+    <div class="empty-state"><span>🐾</span><h3>Our first rescue stories start here.</h3><p>New animal profiles will appear here once the rescue team adds them.</p><a class="btn btn-primary" href="{{ url_for('admin_login') }}">Admin sign in</a></div>
+  {% endfor %}
+  </div>
+</section>
+<section class="callout"><div class="callout-paw">🐾</div><div><span class="eyebrow">BE THEIR TURNING POINT</span><h2>See a stray that needs help?</h2><p>A safe rescue can be the beginning of a beautiful new story.</p></div><a class="btn btn-light" href="{{ url_for('report_rescue') }}">Report an animal <span>↗</span></a></section>
+<section class="section how-section"><div class="section-heading centered"><div><span class="eyebrow">A LITTLE KINDNESS GOES A LONG WAY</span><h2>How you can <span>help</span></h2></div></div><div class="how-grid"><article><span class="how-icon">📍</span><h3>01. Report</h3><p>Tell us where an animal needs help. Clear details help rescuers respond.</p></article><article><span class="how-icon">🩺</span><h3>02. Rescue & care</h3><p>Every animal deserves safety, health checks, and compassionate care.</p></article><article><span class="how-icon">🏡</span><h3>03. Adopt</h3><p>Give a deserving companion a safe, loving place to call home.</p></article></div></section>
+{% endblock %}
