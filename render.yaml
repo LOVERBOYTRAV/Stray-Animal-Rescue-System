@@ -1,3 +1,4 @@
+
 databases:
   - name: stray-rescue-db
     databaseName: stray_rescue
@@ -10,8 +11,7 @@ services:
     runtime: python
     plan: free
     buildCommand: pip install -r requirements.txt
-    preDeployCommand: flask --app app init-db
-    startCommand: gunicorn app:app
+    startCommand: flask --app app init-db && gunicorn app:app
     healthCheckPath: /health
     envVars:
       - key: DATABASE_URL
