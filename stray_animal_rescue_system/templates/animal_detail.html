@@ -1,8 +1,0 @@
-{% extends "base.html" %}
-{% block title %}{{ animal.name }}{% endblock %}
-{% block content %}
-<section class="section detail-layout">
-<div class="detail-image">{% if animal.image_url %}<img src="{{ animal.image_url }}" alt="{{ animal.name }}">{% else %}<div class="photo-placeholder photo-dog detail-placeholder"><span>{{ '🐱' if animal.species == 'Cat' else '🐶' if animal.species == 'Dog' else '🐾' }}</span><small>READY FOR A NEW CHAPTER</small></div>{% endif %}</div>
-<div class="detail-copy"><span class="eyebrow">A PAW-SOME COMPANION</span><h1>Meet <span>{{ animal.name }}.</span></h1><p class="detail-lead">{{ animal.description or (animal.name ~ ' is looking for a caring family and a safe place to call home. Could that be with you?') }}</p><div class="detail-facts"><div><small>SPECIES</small><b>{{ animal.species }}</b></div><div><small>BREED</small><b>{{ animal.breed or 'Mixed / unknown' }}</b></div><div><small>AGE</small><b>{{ animal.estimated_age or 'Not known' }}</b></div><div><small>SEX</small><b>{{ animal.sex }}</b></div><div><small>HEALTH</small><b>{{ animal.health_status }}</b></div><div><small>FOUND AT</small><b>{{ animal.rescue_location or 'Location not listed' }}</b></div></div><a class="btn btn-primary btn-wide" href="{{ url_for('adopt', animal_id=animal.animal_id) }}">Apply to adopt {{ animal.name }} <span>↗</span></a><p class="form-note">Adoption applications are reviewed by our rescue team.</p></div>
-</section>
-{% endblock %}
