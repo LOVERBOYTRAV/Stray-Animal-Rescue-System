@@ -1,0 +1,26 @@
+databases:
+  - name: stray-rescue-db
+    databaseName: stray_rescue
+    user: stray_rescue_user
+    plan: basic-256mb
+
+services:
+  - type: web
+    name: stray-animal-rescue
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    preDeployCommand: flask --app app init-db
+    startCommand: gunicorn app:app
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: stray-rescue-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ADMIN_USERNAME
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
