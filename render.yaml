@@ -3,7 +3,7 @@ databases:
   - name: stray-rescue-db
     databaseName: stray_rescue
     user: stray_rescue_user
-    plan: plan: free
+    plan: free
 
 services:
   - type: web
