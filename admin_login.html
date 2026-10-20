@@ -1,5 +1,0 @@
-{% extends "base.html" %}
-{% block title %}Admin sign in{% endblock %}
-{% block content %}
-<section class="login-wrap"><div class="login-art"><span class="login-paw">🐾</span><span class="eyebrow">PAW HAVEN TEAM</span><h1>Every rescue starts with <span>care.</span></h1><p>Manage animal profiles, review adoption applications, and follow up on rescue reports in one place.</p></div><form class="form-card login-card" method="post"><span class="eyebrow">TEAM ACCESS</span><h2>Welcome back.</h2><p class="muted">Sign in to the rescue dashboard.</p><label>Username<input name="username" required autocomplete="username" autofocus></label><label>Password<input type="password" name="password" required autocomplete="current-password"></label><button class="btn btn-primary btn-wide" type="submit">Sign in securely <span>→</span></button><a class="back-link" href="{{ url_for('index') }}">← Back to public website</a></form></section>
-{% endblock %}
