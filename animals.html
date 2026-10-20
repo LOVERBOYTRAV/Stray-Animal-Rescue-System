@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Meet the animals{% endblock %}
+{% block content %}
+<section class="page-hero"><span class="eyebrow">THEY'RE WAITING FOR YOU</span><h1>Meet your <span>new best friend.</span></h1><p>Take your time, look around, and find the one who feels like family.</p></section>
+<section class="section catalog-section">
+<form class="filter-bar" method="get"><label class="search-box"><span>⌕</span><input name="q" value="{{ q }}" placeholder="Search by name, breed, or location..."></label><select name="species" aria-label="Filter by species"><option value="">All animals</option><option value="Dog" {{ 'selected' if species=='Dog' }}>Dogs</option><option value="Cat" {{ 'selected' if species=='Cat' }}>Cats</option><option value="Other" {{ 'selected' if species=='Other' }}>Other</option></select><button class="btn btn-primary" type="submit">Find a friend</button></form>
+<div class="animal-grid catalog-grid">
+{% for animal in animals %}
+<article class="animal-card"><a class="animal-photo" href="{{ url_for('animal_detail', animal_id=animal.animal_id) }}">{% if animal.image_url %}<img src="{{ animal.image_url }}" alt="{{ animal.name }}" loading="lazy">{% else %}<div class="photo-placeholder {{ 'photo-cat' if animal.species == 'Cat' else 'photo-dog' }}"><span>{{ '🐱' if animal.species == 'Cat' else '🐶' if animal.species == 'Dog' else '🐾' }}</span><small>READY FOR A NEW CHAPTER</small></div>{% endif %}<span class="status-pill">Available</span></a><div class="animal-info"><div><h3>{{ animal.name }}</h3><p>{{ animal.breed or animal.species }}{% if animal.estimated_age %} · {{ animal.estimated_age }}{% endif %}</p></div><a class="round-arrow" href="{{ url_for('animal_detail', animal_id=animal.animal_id) }}">↗</a></div></article>
+{% else %}<div class="empty-state"><span>🐾</span><h3>No matches just yet</h3><p>Try a different search, or check back soon for new rescue stories.</p><a class="text-link" href="{{ url_for('animals') }}">Clear filters →</a></div>{% endfor %}
+</div></section>
+{% endblock %}

@@ -69,6 +69,7 @@ def init_db():
                 reporter_contact VARCHAR(100) NOT NULL,
                 location TEXT NOT NULL,
                 description TEXT NOT NULL,
+                image_url TEXT,
                 status VARCHAR(30) NOT NULL DEFAULT 'New'
                     CHECK (status IN ('New','In progress','Resolved')),
                 report_date TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -91,6 +92,7 @@ def init_db():
                 event_date TIMESTAMPTZ NOT NULL DEFAULT NOW()
             );
         """)
+        conn.execute("ALTER TABLE rescue_reports ADD COLUMN IF NOT EXISTS image_url TEXT")
         conn.commit()
 
 
@@ -195,15 +197,18 @@ def report_rescue():
         contact = request.form.get("reporter_contact", "").strip()
         location = request.form.get("location", "").strip()
         description = request.form.get("description", "").strip()
+        image_url = request.form.get("image_url", "").strip()
         if not all([name, contact, location, description]):
-            flash("Please complete every field before submitting.", "error")
-        elif max(map(len, [name, contact, location, description])) > 3000:
+            flash("Please complete every required field before submitting.", "error")
+        elif max(map(len, [name, contact, location, description])) > 3000 or len(image_url) > 2000:
             flash("One or more fields are too long.", "error")
+        elif image_url and not image_url.startswith("https://res.cloudinary.com/"):
+            flash("Please upload the photo using the photo picker.", "error")
         else:
             with get_db() as conn:
                 conn.execute(
-                    "INSERT INTO rescue_reports (reporter_name,reporter_contact,location,description) VALUES (%s,%s,%s,%s)",
-                    (name, contact, location, description)
+                    "INSERT INTO rescue_reports (reporter_name,reporter_contact,location,description,image_url) VALUES (%s,%s,%s,%s,%s)",
+                    (name, contact, location, description, image_url or None)
                 )
             flash("Thank you for reporting an animal in need. The rescue team has received your report.", "success")
             return redirect(url_for("report_rescue"))
